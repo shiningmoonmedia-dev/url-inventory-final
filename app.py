@@ -8,8 +8,9 @@ st.title("🌐 URL Inventory Tool")
 
 mode = st.radio("Choose Mode", ["Manual URLs / CSV", "Crawl Domain"])
 urls = []
+results = []
 
-# Manual Mode
+# --- Manual Mode ---
 if mode == "Manual URLs / CSV":
     input_text = st.text_area("Paste URLs (one per line)...")
     uploaded_file = st.file_uploader("Or upload CSV/TXT file", type=["csv", "txt"])
@@ -21,22 +22,20 @@ if mode == "Manual URLs / CSV":
     if input_text:
         urls += [line.strip() for line in input_text.splitlines() if line.strip()]
 
-# Crawl Mode
+# --- Crawl Mode ---
 elif mode == "Crawl Domain":
     domain = st.text_input("Enter domain (e.g. https://example.com)")
-    if st.button("Crawl"):
+    if st.button("Crawl Domain"):
         try:
             res = requests.get(domain, timeout=10)
             soup = BeautifulSoup(res.text, "html.parser")
             links = [a["href"] for a in soup.find_all("a", href=True)]
-            # Normalize relative URLs
             urls = [l if l.startswith("http") else domain.rstrip("/") + "/" + l.lstrip("/") for l in links]
             st.success(f"✅ Found {len(urls)} links")
         except Exception as e:
             st.error(f"Error crawling domain: {e}")
 
-# Status Check
-results = []
+# --- Check Status ---
 if urls and st.button("Check Status"):
     with st.spinner("Checking URLs..."):
         for url in urls:
@@ -46,12 +45,33 @@ if urls and st.button("Check Status"):
             except:
                 results.append({"URL": url, "Status": "Error"})
 
-    if results:
+# --- Show Results Table ---
+if urls:
+    if results:  # if status check done
         df = pd.DataFrame(results)
+    else:  # just show crawled/entered URLs
+        df = pd.DataFrame({"URL": urls})
+
+    # Improved styled table
+    def style_status(val):
+        if val == 200:
+            color = "green"
+        elif val == "Error":
+            color = "red"
+        else:
+            color = "orange"
+        return f"color: {color}; font-weight: bold;"
+
+    if "Status" in df.columns:
+        st.dataframe(df.style.applymap(style_status, subset=["Status"]), use_container_width=True)
+    else:
         st.dataframe(df, use_container_width=True)
 
-        # CSV Download
-        csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "Download as CSV", csv, "url_inventory.csv", "text/csv"
-        )
+    # Download button
+    csv = df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "📥 Download as CSV",
+        csv,
+        "url_inventory.csv",
+        "text/csv"
+    )
