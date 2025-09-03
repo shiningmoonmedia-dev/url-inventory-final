@@ -2,9 +2,10 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
+from urllib.parse import urlparse
 
 st.set_page_config(page_title="URL Inventory Tool", layout="wide")
-st.title("🌐 URL Inventory Tool")
+st.title("🌐 URL Inventory Tool !->")
 
 # Initialize session state
 if "urls" not in st.session_state:
@@ -46,31 +47,51 @@ if st.session_state.urls and st.button("Check Status"):
         for url in st.session_state.urls:
             try:
                 r = requests.head(url, allow_redirects=True, timeout=5)
-                st.session_state.results.append({"URL": url, "Status": r.status_code})
+                status_code = r.status_code
             except:
-                st.session_state.results.append({"URL": url, "Status": "Error"})
+                status_code = "Error"
+
+            # Determine type: internal or external
+            domain_input = domain if mode == "Crawl Domain" else ""
+            url_domain = urlparse(url).netloc
+            input_domain = urlparse(domain_input).netloc if domain_input else ""
+            link_type = "Internal" if url_domain == input_domain else "External"
+
+            st.session_state.results.append({
+                "URL": url,
+                "Status": status_code,
+                "Type": link_type,
+                "Notes": ""
+            })
 
 # --- Show Results Table ---
 if st.session_state.urls:
-    if st.session_state.results:  # if status check done
+    if st.session_state.results:
         df = pd.DataFrame(st.session_state.results)
-    else:  # just show crawled/entered URLs
-        df = pd.DataFrame({"URL": st.session_state.urls})
+    else:
+        df = pd.DataFrame({"URL": st.session_state.urls, "Status": "", "Type": "", "Notes": ""})
 
-    # Improved styled table
+    # Style Status
     def style_status(val):
         if val == 200:
             color = "green"
-        elif val == "Error":
+        elif val == "Error" or val == 404:
             color = "red"
         else:
             color = "orange"
         return f"color: {color}; font-weight: bold;"
 
-    if "Status" in df.columns:
-        st.dataframe(df.style.applymap(style_status, subset=["Status"]), use_container_width=True)
-    else:
-        st.dataframe(df, use_container_width=True)
+    # Make URL clickable
+    def make_clickable(url):
+        return f'<a href="{url}" target="_blank">{url}</a>'
+
+    df["URL"] = df["URL"].apply(make_clickable)
+
+    st.write("### URL Inventory Table")
+    st.markdown(
+        df.to_html(escape=False, index=False),
+        unsafe_allow_html=True
+    )
 
     # Download button
     csv = df.to_csv(index=False).encode("utf-8")
