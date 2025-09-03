@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 
 st.set_page_config(page_title="URL Inventory Tool", layout="wide")
-st.title("🌐 URL Inventory Tool")
+st.title("🌐 URL Inventory Tool !")
 
 mode = st.radio("Choose Mode", ["Manual URLs / CSV", "Crawl Domain"])
 urls = []
